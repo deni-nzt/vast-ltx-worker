@@ -50,7 +50,7 @@ print(f"[worker] building pipeline mode={MODE}...",flush=True)
 if MODE=="two_stage":
     parser=default_2_stage_distilled_arg_parser(params=params)
     def mkargs2(p,img,h,w,nf):
-        a=["--distilled-checkpoint-path",CKPT,"--gemma-root",GEMMA,"--spatial-upsampler-path",UPSCALER,"--lora",LORA,"1.0","--offload",OFFLOAD,"--prompt",p,"--image",img,"0","1.0","--height",str(h),"--width",str(w),"--num-frames",str(nf),"--frame-rate","25"]
+        a=["--distilled-checkpoint-path",CKPT,"--gemma-root",GEMMA,"--spatial-upsampler-path",UPSCALER,"--lora",LORA,"1.0","--offload",OFFLOAD,"--prompt",p,"--image",img,"0","1.0","--output-path","/tmp/_unused.mp4","--height",str(h),"--width",str(w),"--num-frames",str(nf),"--frame-rate","25"]
         if QUANT: a+=["--quantization",QUANT]
         return parser.parse_args(a)
     _a=mkargs2("x","/workspace/test.png",TARGET_H,TARGET_W,97)
