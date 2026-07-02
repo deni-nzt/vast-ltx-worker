@@ -24,6 +24,8 @@ echo "[provision] weights (skip if already present)"
 MODEL_LOG="${MODEL_LOG:-/var/log/portal/ltx.log}"; mkdir -p "$(dirname "$MODEL_LOG")"
 echo "[provision] launch model server on :8188 (resident model, log -> $MODEL_LOG)"
 cp /workspace/vast-ltx-worker/model_server.py /workspace/ltx2repo/model_server.py
+# model_server builds its pipeline args against this dummy frame — must exist on a fresh worker
+cp /workspace/vast-ltx-worker/test.png /workspace/test.png
 cd /workspace/ltx2repo
 setsid env LTX_CKPT="$LTX_CKPT" LTX_GEMMA="$LTX_GEMMA" LTX_LORA="$LTX_LORA" LTX_QUANT="${LTX_QUANT:-}" LTX_OFFLOAD="${LTX_OFFLOAD:-none}" \
   .venv/bin/python -m uvicorn model_server:app --host 127.0.0.1 --port 8188 > "$MODEL_LOG" 2>&1 < /dev/null &
