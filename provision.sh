@@ -14,7 +14,7 @@ command -v uv >/dev/null 2>&1 || curl -LsSf https://astral.sh/uv/install.sh | sh
 UV=$(command -v uv || echo /root/.local/bin/uv)
 cd /workspace; [ -d ltx2repo ] || git clone --depth 1 https://github.com/Lightricks/LTX-2.git ltx2repo
 cd /workspace/ltx2repo; $UV sync --frozen --extra xformers
-.venv/bin/python -m pip install -q fastapi uvicorn "huggingface_hub"
+$UV pip install -q fastapi uvicorn huggingface_hub 2>/dev/null || .venv/bin/python -m pip install -q fastapi uvicorn huggingface_hub
 
 echo "[provision] weights (skip if already present)"
 [ -f "$LTX_CKPT" ]  || .venv/bin/huggingface-cli download Lightricks/LTX-2.3 ltx-2.3-22b-dev.safetensors --local-dir "$MODELS/checkpoints/"
