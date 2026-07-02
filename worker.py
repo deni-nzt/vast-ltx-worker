@@ -22,7 +22,7 @@ Worker(WorkerConfig(
         allow_parallel_requests=False,             # one GPU render at a time per worker
         max_queue_time=1800.0,                     # a queued clip can wait a while on a busy worker
         workload_calculator=lambda payload: 100.0, # every clip ~ equal cost -> constant metric
-        benchmark_config=BenchmarkConfig(generator=_benchmark_payload, runs=2, concurrency=1),
+        benchmark_config=BenchmarkConfig(generator=_benchmark_payload, runs=1, concurrency=1),  # 1 warm-up clip (2 added ~1min to every cold start)
     )],
     log_action_config=LogActionConfig(
         on_load=["Application startup complete", "PIPELINE_READY"],

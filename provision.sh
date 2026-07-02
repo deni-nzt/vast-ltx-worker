@@ -15,13 +15,28 @@ command -v uv >/dev/null 2>&1 || curl -LsSf https://astral.sh/uv/install.sh | sh
 UV=$(command -v uv || echo /root/.local/bin/uv)
 cd /workspace; [ -d ltx2repo ] || git clone --depth 1 https://github.com/Lightricks/LTX-2.git ltx2repo
 cd /workspace/ltx2repo; $UV sync --frozen --extra xformers
-$UV pip install -q fastapi uvicorn huggingface_hub 2>/dev/null || .venv/bin/python -m pip install -q fastapi uvicorn huggingface_hub
+$UV pip install -q fastapi uvicorn huggingface_hub hf_transfer 2>/dev/null || .venv/bin/python -m pip install -q fastapi uvicorn huggingface_hub hf_transfer
 
-echo "[provision] weights (skip if already present)"
-[ -f "$LTX_CKPT" ]  || .venv/bin/huggingface-cli download Lightricks/LTX-2.3 ltx-2.3-22b-dev.safetensors --local-dir "$MODELS/checkpoints/"
-[ -f "$LTX_LORA" ]  || .venv/bin/huggingface-cli download Lightricks/LTX-2.3 ltx-2.3-22b-distilled-lora-384-1.1.safetensors --local-dir "$MODELS/loras/"
-[ -d "$LTX_GEMMA" ] || .venv/bin/huggingface-cli download google/gemma-3-12b-it-qat-q4_0-unquantized --local-dir "$LTX_GEMMA/"
-[ -f "$LTX_UPSCALER" ] || .venv/bin/huggingface-cli download Lightricks/LTX-2.3 ltx-2.3-spatial-upscaler-x2-1.1.safetensors --local-dir "$MODELS/upscalers/"
+# Weights: hf_transfer (multi-stream, ~3-5x) + all four downloads IN PARALLEL (they were serial =
+# ~10min of the fresh-machine cold start; parallel + hf_transfer ≈ ~3-4min). Skip what's present.
+echo "[provision] weights (parallel, hf_transfer)"
+export HF_HUB_ENABLE_HF_TRANSFER=1
+PIDS=""
+[ -f "$LTX_CKPT" ]     || { .venv/bin/huggingface-cli download Lightricks/LTX-2.3 ltx-2.3-22b-dev.safetensors --local-dir "$MODELS/checkpoints/" > /tmp/dl_ckpt.log 2>&1 & PIDS="$PIDS $!"; }
+[ -f "$LTX_LORA" ]     || { .venv/bin/huggingface-cli download Lightricks/LTX-2.3 ltx-2.3-22b-distilled-lora-384-1.1.safetensors --local-dir "$MODELS/loras/" > /tmp/dl_lora.log 2>&1 & PIDS="$PIDS $!"; }
+[ -d "$LTX_GEMMA" ]    || { .venv/bin/huggingface-cli download google/gemma-3-12b-it-qat-q4_0-unquantized --local-dir "$LTX_GEMMA/" > /tmp/dl_gemma.log 2>&1 & PIDS="$PIDS $!"; }
+[ -f "$LTX_UPSCALER" ] || { .venv/bin/huggingface-cli download Lightricks/LTX-2.3 ltx-2.3-spatial-upscaler-x2-1.1.safetensors --local-dir "$MODELS/upscalers/" > /tmp/dl_ups.log 2>&1 & PIDS="$PIDS $!"; }
+FAIL=0
+for p in $PIDS; do wait "$p" || FAIL=1; done
+if [ "$FAIL" != 0 ]; then
+  # hf_transfer occasionally trips on flaky pipes — retry the missing pieces once, single-stream.
+  echo "[provision] parallel download had a failure — retrying serially without hf_transfer"
+  unset HF_HUB_ENABLE_HF_TRANSFER
+  [ -f "$LTX_CKPT" ]     || .venv/bin/huggingface-cli download Lightricks/LTX-2.3 ltx-2.3-22b-dev.safetensors --local-dir "$MODELS/checkpoints/"
+  [ -f "$LTX_LORA" ]     || .venv/bin/huggingface-cli download Lightricks/LTX-2.3 ltx-2.3-22b-distilled-lora-384-1.1.safetensors --local-dir "$MODELS/loras/"
+  [ -d "$LTX_GEMMA" ]    || .venv/bin/huggingface-cli download google/gemma-3-12b-it-qat-q4_0-unquantized --local-dir "$LTX_GEMMA/"
+  [ -f "$LTX_UPSCALER" ] || .venv/bin/huggingface-cli download Lightricks/LTX-2.3 ltx-2.3-spatial-upscaler-x2-1.1.safetensors --local-dir "$MODELS/upscalers/"
+fi
 
 MODEL_LOG="${MODEL_LOG:-/var/log/portal/ltx.log}"; mkdir -p "$(dirname "$MODEL_LOG")"
 echo "[provision] launch model server on :8188 (resident model, log -> $MODEL_LOG)"
