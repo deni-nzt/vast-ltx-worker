@@ -21,9 +21,10 @@ echo "[provision] weights (skip if already present)"
 [ -f "$LTX_LORA" ]  || .venv/bin/huggingface-cli download Lightricks/LTX-2.3 ltx-2.3-22b-distilled-lora-384-1.1.safetensors --local-dir "$MODELS/loras/"
 [ -d "$LTX_GEMMA" ] || .venv/bin/huggingface-cli download google/gemma-3-12b-it-qat-q4_0-unquantized --local-dir "$LTX_GEMMA/"
 
-echo "[provision] launch model server on :8188 (resident model, log -> /workspace/model_server.log)"
+MODEL_LOG="${MODEL_LOG:-/var/log/portal/ltx.log}"; mkdir -p "$(dirname "$MODEL_LOG")"
+echo "[provision] launch model server on :8188 (resident model, log -> $MODEL_LOG)"
 cp /workspace/vast-ltx-worker/model_server.py /workspace/ltx2repo/model_server.py
 cd /workspace/ltx2repo
 setsid env LTX_CKPT="$LTX_CKPT" LTX_GEMMA="$LTX_GEMMA" LTX_LORA="$LTX_LORA" LTX_QUANT="${LTX_QUANT:-}" LTX_OFFLOAD="${LTX_OFFLOAD:-none}" \
-  .venv/bin/python -m uvicorn model_server:app --host 127.0.0.1 --port 8188 > /workspace/model_server.log 2>&1 < /dev/null &
+  .venv/bin/python -m uvicorn model_server:app --host 127.0.0.1 --port 8188 > "$MODEL_LOG" 2>&1 < /dev/null &
 echo "[provision] model server launched"

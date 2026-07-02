@@ -16,7 +16,7 @@ def _benchmark_payload():
 Worker(WorkerConfig(
     model_server_url="http://127.0.0.1",
     model_server_port=8188,
-    model_log_file="/workspace/model_server.log",
+    model_log_file=os.environ.get("MODEL_LOG", "/var/log/portal/ltx.log"),
     handlers=[HandlerConfig(
         route="/generate",
         allow_parallel_requests=False,             # one GPU render at a time per worker
