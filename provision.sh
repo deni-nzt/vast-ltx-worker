@@ -13,8 +13,19 @@ mkdir -p "$MODELS/checkpoints" "$MODELS/loras" "$MODELS/text_encoders" "$MODELS/
 echo "[provision] uv + LTX-2 repo"
 command -v uv >/dev/null 2>&1 || curl -LsSf https://astral.sh/uv/install.sh | sh
 UV=$(command -v uv || echo /root/.local/bin/uv)
-cd /workspace; [ -d ltx2repo ] || git clone --depth 1 https://github.com/Lightricks/LTX-2.git ltx2repo
-cd /workspace/ltx2repo; $UV sync --frozen --extra xformers
+# PINNED upstream (2026-07-11): Lightricks main is cloned UNPINNED before this — their
+# 2026-07-07 "Automated PR" dropped the xformers extra and broke every fresh worker
+# (uv sync died in ~2s -> the PyWorker never started -> Vast recycled the box forever).
+# LTX2_REF overrides; bump it only after testing a worker end-to-end.
+LTX2_REF="${LTX2_REF:-780984275fd47128b02bef9b5c085404276866ee}"
+cd /workspace
+[ -d ltx2repo ] || git clone https://github.com/Lightricks/LTX-2.git ltx2repo
+cd /workspace/ltx2repo
+git fetch -q origin "$LTX2_REF" 2>/dev/null || true
+git checkout -q "$LTX2_REF" 2>/dev/null || echo "[provision] WARN: pin $LTX2_REF not found; staying on $(git rev-parse --short HEAD)"
+# xformers extra exists on the pinned ref; keep a fallback so an upstream rename can
+# never hard-kill provisioning again (xformers is an optimization, not a requirement).
+$UV sync --frozen --extra xformers || { echo "[provision] WARN: --extra xformers failed; plain sync"; $UV sync --frozen; }
 $UV pip install -q fastapi uvicorn huggingface_hub hf_transfer 2>/dev/null || .venv/bin/python -m pip install -q fastapi uvicorn huggingface_hub hf_transfer
 
 # Weights: hf_transfer (multi-stream, ~3-5x) + all four downloads IN PARALLEL (they were serial =
