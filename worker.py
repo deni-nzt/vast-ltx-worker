@@ -25,7 +25,10 @@ Worker(WorkerConfig(
         benchmark_config=BenchmarkConfig(generator=_benchmark_payload, runs=1, concurrency=1),  # 1 warm-up clip (2 added ~1min to every cold start)
     )],
     log_action_config=LogActionConfig(
-        on_load=["Application startup complete", "PIPELINE_READY"],
+        # PIPELINE_READY only — it is now emitted (model_server.py) ONLY after :8188 answers /health,
+        # so the framework's no-wait benchmark can't race a pre-bind socket. "Application startup
+        # complete" was ALSO a trigger, but uvicorn logs it BEFORE binding the socket -> same race.
+        on_load=["PIPELINE_READY"],
         on_error=["Traceback", "CUDA out of memory", "RuntimeError"],
     ),
 )).run()

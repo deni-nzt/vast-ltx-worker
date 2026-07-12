@@ -63,7 +63,22 @@ else:
         return parser.parse_args(a)
     _a=mkargs("x","","/workspace/test.png",512,768,97,8,"/tmp/_.mp4")
     PIPELINE=TI2VidOneStagePipeline(checkpoint_path=_a.checkpoint_path,gemma_root=_a.gemma_root,loras=tuple(_a.lora) if _a.lora else (),quantization=_a.quantization,compilation_config=_a.compile,offload_mode=_a.offload_mode)
-print("[worker] PIPELINE_READY",flush=True)
+# The pipeline is built, but uvicorn has NOT bound :8188 yet. The Vast PyWorker fires its warm-up
+# benchmark the instant it sees the on_load string in the log, with NO wait/retry for the port — so
+# emitting PIPELINE_READY here (pre-bind) made the benchmark hit a dead socket -> worker `error` ->
+# Vast restart loop (the cold-start bug, 2026-07-12). Emit it from a background thread ONLY after
+# :8188 actually answers /health, so the benchmark always connects to a live server. (A FastAPI
+# startup hook would NOT fix this: uvicorn runs lifespan startup — and logs "Application startup
+# complete" — BEFORE it binds the listening socket.)
+def _announce_ready_when_serving():
+    for _ in range(1800):
+        try:
+            urllib.request.urlopen("http://127.0.0.1:8188/health",timeout=2).read()
+            print("[worker] PIPELINE_READY",flush=True)
+            return
+        except Exception:
+            time.sleep(1)
+threading.Thread(target=_announce_ready_when_serving,daemon=True).start()
 def vgp(a): return MultiModalGuiderParams(cfg_scale=a.video_cfg_guidance_scale,stg_scale=a.video_stg_guidance_scale,rescale_scale=a.video_rescale_scale,modality_scale=a.a2v_guidance_scale,skip_step=a.video_skip_step,stg_blocks=a.video_stg_blocks)
 def agp(a): return MultiModalGuiderParams(cfg_scale=a.audio_cfg_guidance_scale,stg_scale=a.audio_stg_guidance_scale,rescale_scale=a.audio_rescale_scale,modality_scale=a.v2a_guidance_scale,skip_step=a.audio_skip_step,stg_blocks=a.audio_stg_blocks)
 
