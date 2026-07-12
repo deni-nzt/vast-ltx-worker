@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Model weights — NEVER commit (tens of GB; downloaded by provision.sh from Hugging Face)
+models/
+*.safetensors
+*.ckpt
+*.gguf
+
+# The LTX-2 upstream checkout that provision.sh clones next to this repo
+ltx2repo/
+
+# Runtime / local
+*.log
+.env
+/tmp/
+
+# OS
+.DS_Store
