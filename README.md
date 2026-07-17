@@ -116,7 +116,10 @@ to the model server. Full field-by-field detail (and the app-side route handshak
     "steps": 8,
     "num_frames": 97,                  // ≈ 4.04 s @ 24-25 fps
     "height": 576,
-    "width": 1024                      // app sends 1024×576 (16:9, /32-divisible)
+    "width": 1024,                     // app sends 1024×576 (16:9, /32-divisible)
+    "cfg": 2.5                         // >1 = CFG on the video guider → negative_prompt ACTIVE
+                                       // (Deni 2026-07-17; the app's default). Omitted/1 = legacy
+                                       // inert negatives. one_stage only — two_stage ignores it.
   }
 }
 ```

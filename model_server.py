@@ -95,6 +95,10 @@ class Req(BaseModel):
     width: int=768
     num_frames: int=97
     steps: int=8
+    # cfg>1 activates classifier-free guidance on the VIDEO guider -> negative_prompt becomes
+    # ACTIVE (Deni 2026-07-17: negatives must be accepted). 1.0 = the legacy inert behavior.
+    # one_stage only; the two_stage DistilledPipeline call takes no guider params (cfg inert there).
+    cfg: float=1.0
 @app.get("/health")
 def health(): return {"ok":True,"mode":MODE,"resident":bool(_TCACHE),"model_load_s":round(_LOAD[0],1),"clips_done":len(STATS),"batch_avg_s":round(sum(STATS)/len(STATS),1) if STATS else 0}
 @app.post("/generate")
@@ -114,6 +118,7 @@ def generate(r: Req):
                 encode_video(video=video,fps=a.frame_rate,audio=audio,output_path=out,video_chunks_number=get_video_chunks_number(a.num_frames,tiling)); enc=time.time()-te
         else:
             a=mkargs(r.prompt,r.negative_prompt,img,r.height,r.width,r.num_frames,r.steps,out)
+            if r.cfg and r.cfg>1: a.video_cfg_guidance_scale=float(r.cfg)  # vgp() reads this attr
             with torch.inference_mode():
                 video,audio=PIPELINE(prompt=a.prompt,negative_prompt=a.negative_prompt,seed=a.seed,height=a.height,width=a.width,num_frames=a.num_frames,frame_rate=a.frame_rate,num_inference_steps=a.num_inference_steps,video_guider_params=vgp(a),audio_guider_params=agp(a),images=a.images,max_batch_size=a.max_batch_size)
                 gen=time.time()-ts; te=time.time()
